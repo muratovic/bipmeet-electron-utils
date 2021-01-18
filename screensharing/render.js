@@ -70,6 +70,12 @@ class ScreenShareRenderHook {
                         .then((sources) => callback(sources))
                         .catch((error) => errorCallback(error));
                 }
+            },
+            showParticipantWindow(roomName, baseURL) {
+                ipcRenderer.send('PARTICIPANT_WINDOW_OPEN', roomName, baseURL);
+            },
+            hideParticipantWindow(roomName) {
+                ipcRenderer.send('PARTICIPANT_WINDOW_CLOSE', roomName);
             }
         };
     }
