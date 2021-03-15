@@ -30,12 +30,12 @@ class ScreenShareMainHook {
         // Listen for events coming in from the main render window and the screen share tracker window.
         electron.ipcMain.on(SCREEN_SHARE_EVENTS_CHANNEL, this._onScreenSharingEvent);
 
-        electron.ipcMain.on('PARTICIPANT_WINDOW_OPEN', (event, roomName, baseURL, participantToHide, jwt) => {
-            participantListToggler(false, roomName, baseURL, participantToHide, jwt);
+        electron.ipcMain.on('PARTICIPANT_WINDOW_OPEN', () => {
+            participantListToggler(false);
         });
         
-        electron.ipcMain.on('PARTICIPANT_WINDOW_CLOSE', (event, roomName) => {
-            participantListToggler(true, roomName);
+        electron.ipcMain.on('PARTICIPANT_WINDOW_CLOSE', () => {
+            participantListToggler(true);
         });
 
         // Clean up ipcMain handlers to avoid leaks.

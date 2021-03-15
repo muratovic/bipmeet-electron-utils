@@ -71,11 +71,11 @@ class ScreenShareRenderHook {
                         .catch((error) => errorCallback(error));
                 }
             },
-            showParticipantWindow(roomName, baseURL, participantToHide, jwt) {
-                ipcRenderer.send('PARTICIPANT_WINDOW_OPEN', roomName, baseURL, participantToHide, jwt);
+            showParticipantWindow() {
+                ipcRenderer.send('PARTICIPANT_WINDOW_OPEN');
             },
-            hideParticipantWindow(roomName) {
-                ipcRenderer.send('PARTICIPANT_WINDOW_CLOSE', roomName);
+            hideParticipantWindow() {
+                ipcRenderer.send('PARTICIPANT_WINDOW_CLOSE');
             }
         };
     }
