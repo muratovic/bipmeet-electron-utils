@@ -76,6 +76,9 @@ class ScreenShareRenderHook {
             },
             hideParticipantWindow() {
                 ipcRenderer.send('PARTICIPANT_WINDOW_CLOSE');
+            },
+            updateDesktopAppHost(host) {
+                ipcRenderer.send('PARTICIPANT_WINDOW_UPDATE_HOST', host);
             }
         };
     }

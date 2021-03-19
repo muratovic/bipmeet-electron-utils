@@ -18,7 +18,7 @@ class ScreenShareMainHook {
      * @param {string} identity - Name of the application doing screen sharing, will be displayed in the
      * screen sharing tracker window text i.e. {identity} is sharing your screen.
      */
-    constructor(jitsiMeetWindow, identity, osxBundleId, participantListToggler) {
+    constructor(jitsiMeetWindow, identity, osxBundleId, participantListToggler, updateHostHandler) {
         this._jitsiMeetWindow = jitsiMeetWindow;
         this._identity = identity;
         this._onScreenSharingEvent = this._onScreenSharingEvent.bind(this);
@@ -36,6 +36,10 @@ class ScreenShareMainHook {
         
         electron.ipcMain.on('PARTICIPANT_WINDOW_CLOSE', () => {
             participantListToggler(true);
+        });
+        
+        electron.ipcMain.on('PARTICIPANT_WINDOW_UPDATE_HOST', (event, host) => {
+            updateHostHandler(host);
         });
 
         // Clean up ipcMain handlers to avoid leaks.
@@ -147,6 +151,6 @@ class ScreenShareMainHook {
  * screen sharing tracker window text i.e. {identity} is sharing your screen.
  * @param {string} bundleId- OSX Application BundleId
  */
-module.exports = function setupScreenSharingMain(jitsiMeetWindow, identity, osxBundleId, participantListToggler) {
-    return new ScreenShareMainHook(jitsiMeetWindow, identity, osxBundleId, participantListToggler);
+module.exports = function setupScreenSharingMain(jitsiMeetWindow, identity, osxBundleId, participantListToggler, updateHostHandler) {
+    return new ScreenShareMainHook(jitsiMeetWindow, identity, osxBundleId, participantListToggler, updateHostHandler);
 };
