@@ -57,7 +57,7 @@ class ScreenShareMainHook {
     _onScreenSharingEvent(event, { data }) {
         switch (data.name) {
             case SCREEN_SHARE_EVENTS.OPEN_TRACKER:
-                this._createScreenShareTracker();
+                // this._createScreenShareTracker();
                 break;
             case SCREEN_SHARE_EVENTS.CLOSE_TRACKER:
                 if (this._screenShareTracker) {
