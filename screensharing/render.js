@@ -79,6 +79,9 @@ class ScreenShareRenderHook {
             },
             updateDesktopAppHost(host) {
                 ipcRenderer.send('PARTICIPANT_WINDOW_UPDATE_HOST', host);
+            },
+            updateCurrentLang(lang) {
+                ipcRenderer.send('UPDATE_CURRENT_LANG', lang);
             }
         };
     }
