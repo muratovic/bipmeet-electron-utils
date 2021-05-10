@@ -82,6 +82,9 @@ class ScreenShareRenderHook {
             },
             updateCurrentLang(lang) {
                 ipcRenderer.send('UPDATE_CURRENT_LANG', lang);
+            },
+            openWhiteBoardTracker(url) {
+                ipcRenderer.send('TOGGLE_WHITE_BOARD_SCREEN', url);
             }
         };
     }
