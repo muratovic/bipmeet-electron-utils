@@ -87,8 +87,8 @@ class ScreenShareRenderHook {
                 ipcRenderer.send('TOGGLE_WHITE_BOARD_SCREEN', url);
                 return ipcRenderer.sendSync('whiteboard-toggle');
             },
-            updateTenant(tenant) {
-                ipcRenderer.send('UPDATE_TENANT', tenant);
+            handleHostAction(hostAction) {
+                ipcRenderer.send('HANDLE_HOST_ACTION', hostAction);
             },
         };
     }

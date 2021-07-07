@@ -18,7 +18,7 @@ class ScreenShareMainHook {
      * @param {string} identity - Name of the application doing screen sharing, will be displayed in the
      * screen sharing tracker window text i.e. {identity} is sharing your screen.
      */
-    constructor(jitsiMeetWindow, identity, osxBundleId, participantListToggler, updateHostHandler, updateCurrentLang, openWhiteBoardTracker, updateTenant) {
+    constructor(jitsiMeetWindow, identity, osxBundleId, participantListToggler, updateHostHandler, updateCurrentLang, openWhiteBoardTracker, handleHostAction) {
         this._jitsiMeetWindow = jitsiMeetWindow;
         this._identity = identity;
         this._onScreenSharingEvent = this._onScreenSharingEvent.bind(this);
@@ -38,8 +38,14 @@ class ScreenShareMainHook {
             participantListToggler(true);
         });
         
-        electron.ipcMain.on('PARTICIPANT_WINDOW_UPDATE_HOST', (event, host) => {
-            updateHostHandler(host);
+        electron.ipcMain.on('PARTICIPANT_WINDOW_UPDATE_HOST', (event, params) => {
+            //it should get 2 params, the only thing we can pass 2 params on electron ipcMain events; send to params as array
+            if(typeof params !== 'object'){
+                return;
+            }
+            const host = params[0];
+            const hostAction = params[1];
+            updateHostHandler(host, hostAction);
         });
         
         electron.ipcMain.on('UPDATE_CURRENT_LANG', (event, lang) => {
@@ -50,8 +56,8 @@ class ScreenShareMainHook {
             openWhiteBoardTracker(url);
         });
 
-        electron.ipcMain.on('UPDATE_TENANT', (event, tenant) => {
-            updateTenant(tenant);
+        electron.ipcMain.on('HANDLE_HOST_ACTION', (event, hostAction) => {
+            handleHostAction(hostAction);
         });
 
         // Clean up ipcMain handlers to avoid leaks.
@@ -62,7 +68,7 @@ class ScreenShareMainHook {
             electron.ipcMain.removeListener('PARTICIPANT_WINDOW_UPDATE_HOST', updateHostHandler);
             electron.ipcMain.removeListener('UPDATE_CURRENT_LANG', updateCurrentLang);
             electron.ipcMain.removeListener('TOGGLE_WHITE_BOARD_SCREEN', openWhiteBoardTracker);
-            electron.ipcMain.removeListener('UPDATE_TENANT', updateTenant);
+            electron.ipcMain.removeListener('HANDLE_HOST_ACTION', handleHostAction);
         });
     }
 
@@ -169,6 +175,6 @@ class ScreenShareMainHook {
  * screen sharing tracker window text i.e. {identity} is sharing your screen.
  * @param {string} bundleId- OSX Application BundleId
  */
-module.exports = function setupScreenSharingMain(jitsiMeetWindow, identity, osxBundleId, participantListToggler, updateHostHandler, updateCurrentLang, openWhiteBoardTracker, updateTenant) {
-    return new ScreenShareMainHook(jitsiMeetWindow, identity, osxBundleId, participantListToggler, updateHostHandler, updateCurrentLang, openWhiteBoardTracker, updateTenant);
+module.exports = function setupScreenSharingMain(jitsiMeetWindow, identity, osxBundleId, participantListToggler, updateHostHandler, updateCurrentLang, openWhiteBoardTracker, handleHostAction) {
+    return new ScreenShareMainHook(jitsiMeetWindow, identity, osxBundleId, participantListToggler, updateHostHandler, updateCurrentLang, openWhiteBoardTracker, handleHostAction);
 };
