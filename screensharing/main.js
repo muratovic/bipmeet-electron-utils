@@ -18,7 +18,7 @@ class ScreenShareMainHook {
      * @param {string} identity - Name of the application doing screen sharing, will be displayed in the
      * screen sharing tracker window text i.e. {identity} is sharing your screen.
      */
-    constructor(jitsiMeetWindow, identity, osxBundleId, participantListToggler, updateHostHandler, updateCurrentLang, openWhiteBoardTracker, handleHostAction) {
+    constructor(jitsiMeetWindow, identity, osxBundleId, participantListToggler, updateHostHandler, updateCurrentLang, openWhiteBoardTracker, handleHostAction, getTenantFromStore) {
         this._jitsiMeetWindow = jitsiMeetWindow;
         this._identity = identity;
         this._onScreenSharingEvent = this._onScreenSharingEvent.bind(this);
@@ -59,6 +59,10 @@ class ScreenShareMainHook {
         electron.ipcMain.on('HANDLE_HOST_ACTION', (event, hostAction) => {
             handleHostAction(hostAction);
         });
+        
+        electron.ipcMain.on('GET_TENANT_FROM_STORE', (event, tenantURL) => {
+            getTenantFromStore(tenantURL);
+        });
 
         // Clean up ipcMain handlers to avoid leaks.
         this._jitsiMeetWindow.on('closed', () => {
@@ -69,6 +73,7 @@ class ScreenShareMainHook {
             electron.ipcMain.removeListener('UPDATE_CURRENT_LANG', updateCurrentLang);
             electron.ipcMain.removeListener('TOGGLE_WHITE_BOARD_SCREEN', openWhiteBoardTracker);
             electron.ipcMain.removeListener('HANDLE_HOST_ACTION', handleHostAction);
+            electron.ipcMain.removeListener('GET_TENANT_FROM_STORE', getTenantFromStore);
         });
     }
 
@@ -175,6 +180,6 @@ class ScreenShareMainHook {
  * screen sharing tracker window text i.e. {identity} is sharing your screen.
  * @param {string} bundleId- OSX Application BundleId
  */
-module.exports = function setupScreenSharingMain(jitsiMeetWindow, identity, osxBundleId, participantListToggler, updateHostHandler, updateCurrentLang, openWhiteBoardTracker, handleHostAction) {
-    return new ScreenShareMainHook(jitsiMeetWindow, identity, osxBundleId, participantListToggler, updateHostHandler, updateCurrentLang, openWhiteBoardTracker, handleHostAction);
+module.exports = function setupScreenSharingMain(jitsiMeetWindow, identity, osxBundleId, participantListToggler, updateHostHandler, updateCurrentLang, openWhiteBoardTracker, handleHostAction, getTenantFromStore) {
+    return new ScreenShareMainHook(jitsiMeetWindow, identity, osxBundleId, participantListToggler, updateHostHandler, updateCurrentLang, openWhiteBoardTracker, handleHostAction, getTenantFromStore);
 };

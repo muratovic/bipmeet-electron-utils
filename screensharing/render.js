@@ -90,6 +90,10 @@ class ScreenShareRenderHook {
             handleHostAction(hostAction) {
                 ipcRenderer.send('HANDLE_HOST_ACTION', hostAction);
             },
+            getTenantFromStore(tenantURL) {
+                ipcRenderer.send('GET_TENANT_FROM_STORE', tenantURL);
+                return ipcRenderer.sendSync('GET_TENANT_FROM_STORE', tenantURL);
+            },
         };
     }
 
