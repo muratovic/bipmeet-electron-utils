@@ -22,6 +22,11 @@ class ScreenShareMainHook {
         this._jitsiMeetWindow = jitsiMeetWindow;
         this._identity = identity;
         this._onScreenSharingEvent = this._onScreenSharingEvent.bind(this);
+        this.participantListToggler = participantListToggler.bind(this);
+        this.updateHostHandler = updateHostHandler.bind(this);
+        this.updateCurrentLang = updateCurrentLang.bind(this);
+        this.handleHostAction = handleHostAction.bind(this);
+        this.getTenantFromStore = getTenantFromStore.bind(this);
 
         if (osxBundleId && isMac()) {
             this._verifyScreenCapturePermissions(osxBundleId);
@@ -31,11 +36,11 @@ class ScreenShareMainHook {
         electron.ipcMain.on(SCREEN_SHARE_EVENTS_CHANNEL, this._onScreenSharingEvent);
 
         electron.ipcMain.on('PARTICIPANT_WINDOW_OPEN', () => {
-            participantListToggler(false);
+            this.participantListToggler(false);
         });
         
         electron.ipcMain.on('PARTICIPANT_WINDOW_CLOSE', () => {
-            participantListToggler(true);
+            this.participantListToggler(true);
         });
         
         electron.ipcMain.on('PARTICIPANT_WINDOW_UPDATE_HOST', (event, params) => {
@@ -45,35 +50,35 @@ class ScreenShareMainHook {
             }
             const host = params[0];
             const hostAction = params[1];
-            updateHostHandler(host, hostAction);
+            this.updateHostHandler(host, hostAction);
         });
         
         electron.ipcMain.on('UPDATE_CURRENT_LANG', (event, lang) => {
-            updateCurrentLang(lang);
+            this.updateCurrentLang(lang);
         });
         
         electron.ipcMain.on('TOGGLE_WHITE_BOARD_SCREEN', (event, url) => {
-            openWhiteBoardTracker(url);
+            this.openWhiteBoardTracker(url);
         });
 
         electron.ipcMain.on('HANDLE_HOST_ACTION', (event, hostAction) => {
-            handleHostAction(hostAction);
+            this.handleHostAction(hostAction);
         });
         
         electron.ipcMain.on('GET_TENANT_FROM_STORE', (event, tenantURL) => {
-            getTenantFromStore(tenantURL);
+            this.getTenantFromStore(tenantURL);
         });
 
         // Clean up ipcMain handlers to avoid leaks.
         this._jitsiMeetWindow.on('closed', () => {
             electron.ipcMain.removeListener(SCREEN_SHARE_EVENTS_CHANNEL, this._onScreenSharingEvent);
-            electron.ipcMain.removeListener('PARTICIPANT_WINDOW_OPEN', participantListToggler);
-            electron.ipcMain.removeListener('PARTICIPANT_WINDOW_CLOSE', participantListToggler);
-            electron.ipcMain.removeListener('PARTICIPANT_WINDOW_UPDATE_HOST', updateHostHandler);
-            electron.ipcMain.removeListener('UPDATE_CURRENT_LANG', updateCurrentLang);
-            electron.ipcMain.removeListener('TOGGLE_WHITE_BOARD_SCREEN', openWhiteBoardTracker);
-            electron.ipcMain.removeListener('HANDLE_HOST_ACTION', handleHostAction);
-            electron.ipcMain.removeListener('GET_TENANT_FROM_STORE', getTenantFromStore);
+            electron.ipcMain.removeListener('PARTICIPANT_WINDOW_OPEN', this.participantListToggler);
+            electron.ipcMain.removeListener('PARTICIPANT_WINDOW_CLOSE', this.participantListToggler);
+            electron.ipcMain.removeListener('PARTICIPANT_WINDOW_UPDATE_HOST', this.updateHostHandler);
+            electron.ipcMain.removeListener('UPDATE_CURRENT_LANG', this.updateCurrentLang);
+            electron.ipcMain.removeListener('TOGGLE_WHITE_BOARD_SCREEN', this.openWhiteBoardTracker);
+            electron.ipcMain.removeListener('HANDLE_HOST_ACTION', this.handleHostAction);
+            electron.ipcMain.removeListener('GET_TENANT_FROM_STORE', this.getTenantFromStore);
         });
     }
 
