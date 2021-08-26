@@ -94,6 +94,10 @@ class ScreenShareRenderHook {
                 ipcRenderer.send('GET_TENANT_FROM_STORE', tenantURL);
                 return ipcRenderer.sendSync('GET_TENANT_FROM_STORE', tenantURL);
             },
+            getApplicationVersion(version) {
+                ipcRenderer.send('GET_APP_VERSION', version);
+                return ipcRenderer.sendSync('GET_APP_VERSION', version);
+            },
         };
     }
 
