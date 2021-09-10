@@ -61,11 +61,11 @@ class ScreenShareMainHook {
         });
         
         electron.ipcMain.on('GET_TENANT_FROM_STORE', (event, tenantURL) => {
-            getTenantFromStore(tenantURL);
+            event.returnValue = getTenantFromStore(tenantURL);
         });
 
         electron.ipcMain.on('GET_APP_VERSION', (event, version) => {
-            getApplicationVersion(version);
+            event.returnValue = getApplicationVersion(version);
         });
 
         // Clean up ipcMain handlers to avoid leaks.
