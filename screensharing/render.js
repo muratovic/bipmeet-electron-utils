@@ -1,7 +1,5 @@
-/* global process */
-
 const { ipcRenderer, desktopCapturer } = require('electron');
-const semver = require('semver');
+const { isMac } = require('jitsi-meet-electron-utils/screensharing/utils');
 
 const { SCREEN_SHARE_EVENTS_CHANNEL, SCREEN_SHARE_EVENTS } = require('./constants');
 
@@ -20,17 +18,18 @@ class ScreenShareRenderHook {
     constructor(api) {
         this._api = api;
         this._iframe = this._api.getIFrame();
+        this._PPWindowInterval = 0;
+        this._isSharingPPWindow = false;
+        this._mainPPWindowName = "";
 
         this._onScreenSharingStatusChanged = this._onScreenSharingStatusChanged.bind(this);
         this._sendCloseTrackerEvent = this._sendCloseTrackerEvent.bind(this);
         this._onScreenSharingEvent = this._onScreenSharingEvent.bind(this);
         this._onIframeApiLoad = this._onIframeApiLoad.bind(this);
-        this._cleanContext = this._cleanContext.bind(this);
+        this._cleanTrackerContext = this._cleanTrackerContext.bind(this);
+        this._onApiDispose = this._onApiDispose.bind(this);
 
-        ipcRenderer.on(SCREEN_SHARE_EVENTS_CHANNEL, this._onScreenSharingEvent);
-        this._api.on('screenSharingStatusChanged', this._onScreenSharingStatusChanged);
-        this._api.on('videoConferenceLeft', this._cleanContext);
-        this._api.on('_willDispose', this._cleanContext);
+        this._api.on('_willDispose', this._onApiDispose);
         this._iframe.addEventListener('load', this._onIframeApiLoad);
     }
 
@@ -38,6 +37,7 @@ class ScreenShareRenderHook {
      * Make sure that even after reload/redirect the screensharing will be available
      */
     _onIframeApiLoad() {
+        const self = this;
         this._iframe.contentWindow.JitsiMeetElectron = {
             /**
              * Get sources available for screensharing. The callback is invoked
@@ -55,23 +55,55 @@ class ScreenShareRenderHook {
              * 150px.
              */
             obtainDesktopStreams(callback, errorCallback, options = {}) {
-                if (semver.lt(process.versions.electron, '5.0.0')) {
-                    desktopCapturer.getSources(options, (error, sources) => {
-                        if (error) {
-                            errorCallback(error);
-                            return;
-                        }
-
-                        callback(sources);
-                    });
+                desktopCapturer
+                .getSources(options)
+                .then((sources) => callback(sources))
+                .catch((error) => errorCallback(error));
+            },
+            showParticipantWindow() {
+                ipcRenderer.send('PARTICIPANT_WINDOW_OPEN');
+            },
+            hideParticipantWindow() {
+                ipcRenderer.send('PARTICIPANT_WINDOW_CLOSE');
+            },
+            updateDesktopAppHost(host) {
+                ipcRenderer.send('PARTICIPANT_WINDOW_UPDATE_HOST', host);
+            },
+            updateCurrentLang(lang) {
+                ipcRenderer.send('UPDATE_CURRENT_LANG', lang);
+            },
+            openWhiteBoardTracker(url) {
+                ipcRenderer.send('TOGGLE_WHITE_BOARD_SCREEN', url);
+                return ipcRenderer.sendSync('whiteboard-toggle');
+            },
+            handleHostAction(hostAction) {
+                ipcRenderer.send('HANDLE_HOST_ACTION', hostAction);
+            },
+            getTenantFromStore(tenantURL) {
+                ipcRenderer.send('GET_TENANT_FROM_STORE', tenantURL);
+                return ipcRenderer.sendSync('GET_TENANT_FROM_STORE', tenantURL);
+            },
+            getApplicationVersion(version) {
+                ipcRenderer.send('GET_APP_VERSION', version);
+                return ipcRenderer.sendSync('GET_APP_VERSION', version);
+            },
+            screenSharingStatusChanged(event){
+                if (event.on) {
+                    if (event.details.sourceType === "window" 
+                        && event.details.windowName 
+                        && (isMac() || event.details.windowName.includes("PowerPoint"))) {
+                        self._startWindowInterval();
+                    }
                 } else {
-                    desktopCapturer
-                        .getSources(options)
-                        .then((sources) => callback(sources))
-                        .catch((error) => errorCallback(error));
+                    self._isScreenSharing = false;
+                    if (self._PPWindowInterval) clearInterval(self._PPWindowInterval);
                 }
             }
         };
+
+        ipcRenderer.on(SCREEN_SHARE_EVENTS_CHANNEL, this._onScreenSharingEvent);
+        this._api.on('screenSharingStatusChanged', this._onScreenSharingStatusChanged);
+        this._api.on('videoConferenceLeft', this._cleanTrackerContext);
     }
 
     /**
@@ -114,10 +146,35 @@ class ScreenShareRenderHook {
                     name: SCREEN_SHARE_EVENTS.OPEN_TRACKER
                 }
             });
+            if (event.details.sourceType === "window" 
+                && event.detail.windowName 
+                && event.detail.windowName.includes("PowerPoint")) {
+                this._startWindowInterval();
+            }
         } else {
             this._isScreenSharing = false;
             this._sendCloseTrackerEvent();
+            if (this._PPWindowInterval) clearInterval(this._PPWindowInterval);
         }
+    }
+
+    _startWindowInterval() {
+        const self = this;
+        this._PPWindowInterval = setInterval(async () => {
+            const windows = await desktopCapturer
+                .getSources({ types: ['window'] });
+            const powerPointWindow = windows.find(x => x.name.includes("PowerPoint Slide Show"));
+            const mainPPWindow = windows.find(x => this._mainPPWindowName.length > 0 && x.name.includes(this._mainPPWindowName));
+            if (powerPointWindow) {
+                if (self._mainPPWindowName.length === 0) {
+                    self._mainPPWindowName = powerPointWindow.name.match(/\[(.*)]/)[1];
+                    self._iframe.contentWindow.APP.conference.replacePowerpointWindow(powerPointWindow.id);
+                }
+            } else if (mainPPWindow) {
+                self._mainPPWindowName = "";
+                self._iframe.contentWindow.APP.conference.replacePowerpointWindow(mainPPWindow.id);
+            }
+        }, 1000);
     }
 
     /**
@@ -134,18 +191,34 @@ class ScreenShareRenderHook {
     }
 
     /**
-     * Clear all event handler in order to avoid any potential leaks and close the screen sharing tracker
-     * window in the event that it's currently being displayed.
+     * Clear all event handlers related to the tracker in order to avoid any potential leaks and closes it in the event
+     * that it's currently being displayed.
      *
      * @returns {void}
      */
-    _cleanContext() {
+    _cleanTrackerContext() {
         ipcRenderer.removeListener(SCREEN_SHARE_EVENTS_CHANNEL, this._onScreenSharingEvent);
         this._api.removeListener('screenSharingStatusChanged', this._onScreenSharingStatusChanged);
-        this._api.removeListener('videoConferenceLeft', this._sendCloseTrackerEvent);
-        this._api.removeListener('_willDispose', this._sendCloseTrackerEvent);
-        this._iframe.removeEventListener('load', this._onIframeApiLoad);
+        this._api.removeListener('videoConferenceLeft', this._cleanTrackerContext);
+        this._PPWindowInterval = 0;
+        this._mainPPWindowName = "";
+        this._isSharingPPWindow = false;
         this._sendCloseTrackerEvent();
+    }
+
+    /**
+     * Clear all event handlers in order to avoid any potential leaks.
+     *
+     * NOTE: It is very important to remove the load listener only when we are sure that the iframe won't be used
+     * anymore. Otherwise if we use the videoConferenceLeft event for example, when the iframe is internally reloaded
+     * because of an error and then loads again we won't initialize the screen sharing functionality.
+     *
+     * @returns {void}
+     */
+    _onApiDispose() {
+        this._cleanTrackerContext();
+        this._api.removeListener('_willDispose', this._onApiDispose);
+        this._iframe.removeEventListener('load', this._onIframeApiLoad);
     }
 }
 

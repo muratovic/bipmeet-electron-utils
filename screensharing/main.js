@@ -1,8 +1,10 @@
 /* global __dirname */
 const electron = require('electron');
+const os = require('os');
 
 const { SCREEN_SHARE_EVENTS_CHANNEL, SCREEN_SHARE_EVENTS, TRACKER_SIZE } = require('./constants');
 const { isMac } = require('./utils');
+const { windowsEnableScreenProtection } = require('../helpers/functions');
 
 /**
  * Main process component that sets up electron specific screen sharing functionality, like screen sharing
@@ -18,7 +20,7 @@ class ScreenShareMainHook {
      * @param {string} identity - Name of the application doing screen sharing, will be displayed in the
      * screen sharing tracker window text i.e. {identity} is sharing your screen.
      */
-    constructor(jitsiMeetWindow, identity, osxBundleId) {
+     constructor(jitsiMeetWindow, identity, osxBundleId, participantListToggler, updateHostHandler, updateCurrentLang, openWhiteBoardTracker, handleHostAction, getTenantFromStore, getApplicationVersion) {
         this._jitsiMeetWindow = jitsiMeetWindow;
         this._identity = identity;
         this._onScreenSharingEvent = this._onScreenSharingEvent.bind(this);
@@ -30,9 +32,55 @@ class ScreenShareMainHook {
         // Listen for events coming in from the main render window and the screen share tracker window.
         electron.ipcMain.on(SCREEN_SHARE_EVENTS_CHANNEL, this._onScreenSharingEvent);
 
+        electron.ipcMain.on('PARTICIPANT_WINDOW_OPEN', () => {
+            participantListToggler(false);
+        });
+        
+        electron.ipcMain.on('PARTICIPANT_WINDOW_CLOSE', () => {
+            participantListToggler(true);
+        });
+        
+        electron.ipcMain.on('PARTICIPANT_WINDOW_UPDATE_HOST', (event, params) => {
+            //it should get 2 params, the only thing we can pass 2 params on electron ipcMain events; send to params as array
+            if(typeof params !== 'object'){
+                return;
+            }
+            const host = params[0];
+            const hostAction = params[1];
+            updateHostHandler(host, hostAction);
+        });
+        
+        electron.ipcMain.on('UPDATE_CURRENT_LANG', (event, lang) => {
+            updateCurrentLang(lang);
+        });
+        
+        electron.ipcMain.on('TOGGLE_WHITE_BOARD_SCREEN', (event, url) => {
+            openWhiteBoardTracker(url);
+        });
+
+        electron.ipcMain.on('HANDLE_HOST_ACTION', (event, hostAction) => {
+            handleHostAction(hostAction);
+        });
+        
+        electron.ipcMain.on('GET_TENANT_FROM_STORE', (event, tenantURL) => {
+            event.returnValue = getTenantFromStore(tenantURL);
+        });
+
+        electron.ipcMain.on('GET_APP_VERSION', (event, version) => {
+            event.returnValue = getApplicationVersion(version);
+        });
+
         // Clean up ipcMain handlers to avoid leaks.
         this._jitsiMeetWindow.on('closed', () => {
             electron.ipcMain.removeListener(SCREEN_SHARE_EVENTS_CHANNEL, this._onScreenSharingEvent);
+            participantListToggler && electron.ipcMain.removeListener('PARTICIPANT_WINDOW_OPEN', participantListToggler);
+            participantListToggler && electron.ipcMain.removeListener('PARTICIPANT_WINDOW_CLOSE', participantListToggler);
+            updateHostHandler && electron.ipcMain.removeListener('PARTICIPANT_WINDOW_UPDATE_HOST', updateHostHandler);
+            updateCurrentLang && electron.ipcMain.removeListener('UPDATE_CURRENT_LANG', updateCurrentLang);
+            openWhiteBoardTracker && electron.ipcMain.removeListener('TOGGLE_WHITE_BOARD_SCREEN', openWhiteBoardTracker);
+            handleHostAction && electron.ipcMain.removeListener('HANDLE_HOST_ACTION', handleHostAction);
+            getTenantFromStore && electron.ipcMain.removeListener('GET_TENANT_FROM_STORE', getTenantFromStore);
+            getApplicationVersion && electron.ipcMain.removeListener('GET_APP_VERSION', getApplicationVersion);
         });
     }
 
@@ -45,7 +93,7 @@ class ScreenShareMainHook {
     _onScreenSharingEvent(event, { data }) {
         switch (data.name) {
             case SCREEN_SHARE_EVENTS.OPEN_TRACKER:
-                this._createScreenShareTracker();
+                // this._createScreenShareTracker();
                 break;
             case SCREEN_SHARE_EVENTS.CLOSE_TRACKER:
                 if (this._screenShareTracker) {
@@ -90,9 +138,21 @@ class ScreenShareMainHook {
             frame: false,
             show: false,
             webPreferences: {
+                // TODO: these 3 should be removed.
+                contextIsolation: false,
+                enableRemoteModule: true,
                 nodeIntegration: true
             }
         });
+
+        // for Windows OS, only enable protection for builds higher or equal to Windows 10 Version 2004
+        // which have the flag WDA_EXCLUDEFROMCAPTURE(which makes the window completely invisible on capture)
+        // For older Windows versions, we leave the window completely visible, including content, on capture,
+        // otherwise we'll have a black content window on share.
+        if (os.platform() !== 'win32' || windowsEnableScreenProtection(os.release())) {
+            // Avoid this window from being captured.
+            this._screenShareTracker.setContentProtection(true);
+        }
 
         this._screenShareTracker.on('closed', () => {
             this._screenShareTracker = undefined;
@@ -139,6 +199,6 @@ class ScreenShareMainHook {
  * screen sharing tracker window text i.e. {identity} is sharing your screen.
  * @param {string} bundleId- OSX Application BundleId
  */
-module.exports = function setupScreenSharingMain(jitsiMeetWindow, identity, osxBundleId) {
-    return new ScreenShareMainHook(jitsiMeetWindow, identity, osxBundleId);
+module.exports = function setupScreenSharingMain(jitsiMeetWindow, identity, osxBundleId, participantListToggler, updateHostHandler, updateCurrentLang, openWhiteBoardTracker, handleHostAction, getTenantFromStore, getApplicationVersion) {
+    return new ScreenShareMainHook(jitsiMeetWindow, identity, osxBundleId, participantListToggler, updateHostHandler, updateCurrentLang, openWhiteBoardTracker, handleHostAction, getTenantFromStore, getApplicationVersion);
 };
