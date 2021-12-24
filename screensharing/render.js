@@ -19,7 +19,6 @@ class ScreenShareRenderHook {
         this._api = api;
         this._iframe = this._api.getIFrame();
         this._PPWindowInterval = 0;
-        this._isSharingPPWindow = false;
         this._mainPPWindowName = "";
 
         this._onScreenSharingStatusChanged = this._onScreenSharingStatusChanged.bind(this);
@@ -146,15 +145,9 @@ class ScreenShareRenderHook {
                     name: SCREEN_SHARE_EVENTS.OPEN_TRACKER
                 }
             });
-            if (event.details.sourceType === "window" 
-                && event.detail.windowName 
-                && event.detail.windowName.includes("PowerPoint")) {
-                this._startWindowInterval();
-            }
         } else {
             this._isScreenSharing = false;
             this._sendCloseTrackerEvent();
-            if (this._PPWindowInterval) clearInterval(this._PPWindowInterval);
         }
     }
 
@@ -202,7 +195,6 @@ class ScreenShareRenderHook {
         this._api.removeListener('videoConferenceLeft', this._cleanTrackerContext);
         this._PPWindowInterval = 0;
         this._mainPPWindowName = "";
-        this._isSharingPPWindow = false;
         this._sendCloseTrackerEvent();
     }
 
